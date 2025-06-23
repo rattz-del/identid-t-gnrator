@@ -1,0 +1,274 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Multi-Länder Fake Identität Generator</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 700px;
+    margin: 2rem auto;
+    padding: 1rem;
+    background: #f5f5f5;
+    color: #222;
+  }
+  button, select {
+    background-color: #0078d4;
+    border: none;
+    color: white;
+    padding: 0.7rem 1.2rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+  button:hover, select:hover {
+    background-color: #005a9e;
+  }
+  img {
+    border-radius: 50%;
+    margin: 1rem 0;
+  }
+  pre {
+    background-color: #eee;
+    padding: 1rem;
+    overflow-x: auto;
+    max-height: 300px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .field-label {
+    font-weight: bold;
+  }
+  label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>Multi-Länder Fake Identität Generator</h1>
+
+<label for="countrySelect">Land auswählen:</label>
+<select id="countrySelect">
+  <option value="de">Deutschland</option>
+  <option value="us">USA</option>
+  <option value="fr">Frankreich</option>
+  <option value="gb">Großbritannien</option>
+</select>
+
+<button id="generateBtn">Neue Identität generieren</button>
+<button id="copyBtn" style="display:none;">Daten kopieren</button>
+<button id="exportBtn" style="display:none;">Als JSON exportieren</button>
+
+<div id="identityDisplay"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@faker-js/faker/dist/faker.umd.min.js"></script>
+
+<script>
+// Adressdaten je Land (kleine Beispiele, echte öffentliche Adressen)
+// Für DE
+const addressesDE = [
+  {"street": "Hauptstraße 12", "city": "Berlin", "postcode": "10115"},
+  {"street": "Musterweg 7", "city": "München", "postcode": "80331"},
+  {"street": "Bahnhofstraße 3", "city": "Hamburg", "postcode": "20095"},
+  {"street": "Schulstraße 9", "city": "Köln", "postcode": "50667"}
+];
+
+// Für US
+const addressesUS = [
+  {"street": "123 Main St", "city": "New York", "postcode": "10001", "state": "NY"},
+  {"street": "456 Oak Ave", "city": "Los Angeles", "postcode": "90001", "state": "CA"},
+  {"street": "789 Pine Rd", "city": "Chicago", "postcode": "60601", "state": "IL"},
+  {"street": "321 Maple Dr", "city": "Houston", "postcode": "77001", "state": "TX"}
+];
+
+// Für FR
+const addressesFR = [
+  {"street": "10 Rue de la Paix", "city": "Paris", "postcode": "75002"},
+  {"street": "5 Avenue des Champs-Élysées", "city": "Paris", "postcode": "75008"},
+  {"street": "12 Boulevard Saint-Michel", "city": "Lyon", "postcode": "69006"},
+  {"street": "7 Rue du Faubourg Saint-Antoine", "city": "Marseille", "postcode": "13001"}
+];
+
+// Für GB
+const addressesGB = [
+  {"street": "221B Baker Street", "city": "London", "postcode": "NW1 6XE"},
+  {"street": "10 Downing Street", "city": "London", "postcode": "SW1A 2AA"},
+  {"street": "1 High Street", "city": "Manchester", "postcode": "M1 1AE"},
+  {"street": "15 King Street", "city": "Edinburgh", "postcode": "EH1 3EG"}
+];
+
+// Bankdaten je Land (vereinfacht)
+const banksByCountry = {
+  de: [
+    {name: "Deutsche Bank", bic: "DEUTDEFF"},
+    {name: "Commerzbank", bic: "COBADEFF"},
+    {name: "Sparkasse", bic: "SPKRDEFF"},
+    {name: "Volksbank", bic: "GENODEFF"},
+  ],
+  us: [
+    {name: "Bank of America", bic: "BOFAUS3N"},
+    {name: "Chase Bank", bic: "CHASUS33"},
+    {name: "Wells Fargo", bic: "WFBIUS6S"},
+  ],
+  fr: [
+    {name: "BNP Paribas", bic: "BNPAFRPP"},
+    {name: "Société Générale", bic: "SOGEFRPP"},
+    {name: "Crédit Agricole", bic: "AGRIFRPP"},
+  ],
+  gb: [
+    {name: "HSBC UK", bic: "MIDLGB22"},
+    {name: "Barclays", bic: "BARCGB22"},
+    {name: "Lloyds Bank", bic: "LOYDGB2L"},
+  ]
+};
+
+// Kreditkarten Testnummern pro Land (vereinfacht)
+const creditCardTestNumbers = {
+  de: "4111 1111 1111 1111", // Visa
+  us: "6011 0009 9013 9424", // Discover
+  fr: "4000 1234 5678 9010", // Visa (Beispiel)
+  gb: "5555 5555 5555 4444", // MasterCard
+};
+
+// IBAN-Prüfziffer berechnen (vereinfachte Funktion, keine volle Validierung)
+function generateIban(countryCode) {
+  // Dummy IBAN mit korrekter Länge je Land (vereinfacht)
+  // DE = 22, FR = 27, GB = 22
+  const lengths = {de: 22, fr: 27, gb: 22};
+  const length = lengths[countryCode] || 22;
+
+  let bban = "";
+  const chars = "0123456789";
+  for(let i=0; i<length-4; i++) {
+    bban += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  const checkDigits = "00";
+  return countryCode.toUpperCase() + checkDigits + bban;
+}
+
+function getRandomFromArray(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function generateFakeIdentity(countryCode) {
+  // Faker lokal einstellen
+  const faker = window.faker;
+  faker.locale = countryCode;
+
+  // Adresse auswählen
+  let addressData;
+  switch(countryCode) {
+    case "de": addressData = getRandomFromArray(addressesDE); break;
+    case "us": addressData = getRandomFromArray(addressesUS); break;
+    case "fr": addressData = getRandomFromArray(addressesFR); break;
+    case "gb": addressData = getRandomFromArray(addressesGB); break;
+    default: addressData = getRandomFromArray(addressesDE);
+  }
+
+  // Namen, Email, Telefon
+  const gender = faker.person.gender();
+  const firstName = faker.person.firstName(gender === "male" ? "male" : "female");
+  const lastName = faker.person.lastName();
+  const email = faker.internet.email({firstName, lastName});
+  const phone = faker.phone.number();
+
+  // Geburtstag
+  const birthdayDate = faker.date.birthdate({min:18, max:80, mode:"age"});
+  const birthday = birthdayDate.toISOString().substring(0,10);
+  const age = new Date().getFullYear() - birthdayDate.getFullYear();
+
+  // Bankdaten
+  const bank = getRandomFromArray(banksByCountry[countryCode] || banksByCountry["de"]);
+  const iban = generateIban(countryCode);
+  const accountNumber = iban.substring(4); // Dummy Kontonummer aus IBAN
+  const creditCard = creditCardTestNumbers[countryCode] || creditCardTestNumbers["de"];
+
+  // Foto von RandomUser
+  // nat param: de, us, fr, gb
+  // Um Gender zu setzen: gender=male oder female
+  // Format: large, medium, thumbnail
+  const natMap = {"de":"DE", "us":"US", "fr":"FR", "gb":"GB"};
+  const natParam = natMap[countryCode.toLowerCase()] || "DE";
+  const genderParam = gender === "male" ? "male" : "female";
+  const photoUrl = `https://randomuser.me/api/portraits/${genderParam === "male" ? "men" : "women"}/${Math.floor(Math.random()*99)}.jpg`;
+
+  // Adresse string
+  let addressString = `${addressData.street}, ${addressData.city}`;
+  if(addressData.postcode) addressString += `, ${addressData.postcode}`;
+  if(addressData.state) addressString += `, ${addressData.state}`;
+  if(addressData.country) addressString += `, ${addressData.country}`;
+
+  return {
+    name: `${firstName} ${lastName}`,
+    gender: gender,
+    birthday: birthday,
+    age: age,
+    email: email,
+    phone: phone,
+    address: addressString,
+    photo: photoUrl,
+    bank: {
+      bankName: bank.name,
+      bic: bank.bic,
+      iban: iban,
+      accountNumber: accountNumber,
+      creditCard: creditCard
+    }
+  };
+}
+
+function displayIdentity(identity) {
+  const container = document.getElementById('identityDisplay');
+  container.innerHTML = `
+    <img src="${identity.photo}" alt="Profilfoto" width="100" height="100"/>
+    <p><span class="field-label">Name:</span> ${identity.name}</p>
+    <p><span class="field-label">Geschlecht:</span> ${identity.gender}</p>
+    <p><span class="field-label">Geburtstag:</span> ${identity.birthday} (Alter: ${identity.age})</p>
+    <p><span class="field-label">Email:</span> ${identity.email}</p>
+    <p><span class="field-label">Telefon:</span> ${identity.phone}</p>
+    <p><span class="field-label">Adresse:</span> ${identity.address}</p>
+    <hr/>
+    <p><span class="field-label">Bank:</span> ${identity.bank.bankName}</p>
+    <p><span class="field-label">BIC:</span> ${identity.bank.bic}</p>
+    <p><span class="field-label">IBAN:</span> ${identity.bank.iban}</p>
+    <p><span class="field-label">Kontonummer:</span> ${identity.bank.accountNumber}</p>
+    <p><span class="field-label">Kreditkarte (Testnummer):</span> ${identity.bank.creditCard}</p>
+  `;
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert("Daten kopiert!");
+  }).catch(() => {
+    alert("Fehler beim Kopieren.");
+  });
+}
+
+function exportToJson(identity) {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(identity, null, 2));
+  const dlAnchorElem = document.createElement('a');
+  dlAnchorElem.setAttribute("href", dataStr);
+  dlAnchorElem.setAttribute("download", "fake_identity.json");
+  dlAnchorElem.click();
+}
+
+document.getElementById('generateBtn').addEventListener('click', () => {
+  const countryCode = document.getElementById('countrySelect').value;
+  const identity = generateFakeIdentity(countryCode);
+  displayIdentity(identity);
+  document.getElementById('copyBtn').style.display = 'inline-block';
+  document.getElementById('exportBtn').style.display = 'inline-block';
+
+  document.getElementById('copyBtn').onclick = () => copyToClipboard(JSON.stringify(identity, null, 2));
+  document.getElementById('exportBtn').onclick = () => exportToJson(identity);
+});
+</script>
+
+</body>
+</html>
